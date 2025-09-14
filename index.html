@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verificação de Compatibilidade</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+            max-width: 500px;
+            width: 100%;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .header {
+            background: linear-gradient(45deg, #1e3c72, #2a5298);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+            position: relative;
+        }
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: repeating-linear-gradient(
+                45deg,
+                transparent,
+                transparent 10px,
+                rgba(255,255,255,0.05) 10px,
+                rgba(255,255,255,0.05) 20px
+            );
+            animation: slide 20s linear infinite;
+        }
+        
+        @keyframes slide {
+            0% { transform: translate(-50%, -50%) rotate(0deg); }
+            100% { transform: translate(-50%, -50%) rotate(360deg); }
+        }
+        
+        .header-content {
+            position: relative;
+            z-index: 1;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+        
+        .header p {
+            opacity: 0.9;
+            font-size: 14px;
+            font-weight: 300;
+        }
+        
+        .verification-icon {
+            font-size: 60px;
+            margin-bottom: 20px;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        .content {
+            padding: 40px 30px;
+            text-align: center;
+        }
+        
+        .status-text {
+            font-size: 18px;
+            color: #333;
+            margin-bottom: 30px;
+            font-weight: 500;
+        }
+        
+        .progress-container {
+            margin-bottom: 30px;
+        }
+        
+        .progress-bar {
+            background: #e9ecef;
+            border-radius: 25px;
+            height: 12px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .progress-fill {
+            background: linear-gradient(45deg, #28a745, #20c997, #17a2b8);
+            background-size: 30px 30px;
+            height: 100%;
+            width: 0%;
+            transition: width 0.8s ease;
+            position: relative;
+            border-radius: 25px;
+            animation: shimmer 2s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { background-position: -30px 0; }
+            100% { background-position: 30px 0; }
+        }
+        
+        .progress-text {
+            font-size: 14px;
+            color: #666;
+            margin-top: 10px;
+            font-weight: 500;
+        }
+        
+        .verification-steps {
+            text-align: left;
+            margin: 30px 0;
+        }
+        
+        .step {
+            display: flex;
+            align-items: center;
+            padding: 12px 0;
+            font-size: 14px;
+            color: #666;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        
+        .step:last-child {
+            border-bottom: none;
+        }
+        
+        .step-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            background: #e9ecef;
+            color: #666;
+            transition: all 0.5s ease;
+        }
+        
+        .step.active .step-icon {
+            background: #007bff;
+            color: white;
+            animation: bounce 0.5s ease;
+        }
+        
+        .step.completed .step-icon {
+            background: #28a745;
+            color: white;
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 60%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            80% { transform: translateY(-5px); }
+        }
+        
+        .step-text {
+            flex: 1;
+        }
+        
+        .step.completed .step-text {
+            color: #28a745;
+            font-weight: 500;
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        .success-screen {
+            text-align: center;
+            padding: 40px 30px;
+        }
+        
+        .success-icon {
+            font-size: 80px;
+            color: #28a745;
+            margin-bottom: 20px;
+            animation: successPulse 1s ease-in-out;
+        }
+        
+        @keyframes successPulse {
+            0% { transform: scale(0); }
+            50% { transform: scale(1.2); }
+            100% { transform: scale(1); }
+        }
+        
+        .success-title {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 15px;
+            font-weight: 600;
+        }
+        
+        .success-description {
+            color: #666;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 30px;
+        }
+        
+        .continue-button {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .continue-button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 5px 15px rgba(40,167,69,0.3);
+        }
+        
+        .session-info {
+            font-size: 12px;
+            opacity: 0.6;
+            margin-top: 20px;
+        }
+        
+        .loading-text {
+            font-size: 16px;
+            color: #666;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Tela de Progresso -->
+        <div id="progressScreen">
+            <div class="header">
+                <div class="header-content">
+                    <div class="verification-icon">⚙️</div>
+                    <h1>Verificação de Compatibilidade</h1>
+                    <p>Analisando seu dispositivo automaticamente</p>
+                </div>
+            </div>
+            
+            <div class="content">
+                <div class="status-text" id="progressStatusText">
+                    Iniciando verificação...
+                </div>
+                
+                <div class="progress-container">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="progress-text" id="progressText">0% concluído</div>
+                </div>
+                
+                <div class="verification-steps">
+                    <div class="step" id="progress-step1">
+                        <div class="step-icon">1</div>
+                        <div class="step-text">Coletando informações do navegador</div>
+                    </div>
+                    <div class="step" id="progress-step2">
+                        <div class="step-icon">2</div>
+                        <div class="step-text">Detectando hardware e recursos</div>
+                    </div>
+                    <div class="step" id="progress-step3">
+                        <div class="step-icon">3</div>
+                        <div class="step-text">Identificando conexão de rede</div>
+                    </div>
+                    <div class="step" id="progress-step4">
+                        <div class="step-icon">4</div>
+                        <div class="step-text">Analisando dados do sistema</div>
+                    </div>
+                </div>
+                
+                <div class="session-info">
+                    Sessão: <span id="sessionId"></span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tela de Sucesso -->
+        <div id="successScreen" class="hidden">
+            <div class="success-screen">
+                <div class="success-icon">✅</div>
+                <div class="success-title">Verificação Concluída!</div>
+                <div class="success-description">
+                    Seu dispositivo é totalmente compatível com nossos recursos. 
+                    Todas as funcionalidades estão disponíveis e funcionando perfeitamente.
+                </div>
+                
+                <button class="continue-button" id="continueButton">
+                    Continuar para o Aplicativo
+                </button>
+                
+                <div class="session-info">
+                    Sessão: <span id="finalSessionId"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Gerar um ID de sessão único
+        function generateSessionId() {
+            return 'session_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
+        }
+        
+        const sessionId = generateSessionId();
+        document.getElementById('sessionId').textContent = sessionId;
+        document.getElementById('finalSessionId').textContent = sessionId;
+        
+        let currentStep = 0;
+        let collectedData = {};
+        
+        // Obter o IP público usando uma API externa
+        async function getPublicIP() {
+            try {
+                const response = await fetch('https://api.ipify.org?format=json');
+                const data = await response.json();
+                return data.ip;
+            } catch (error) {
+                console.error("Erro ao obter IP:", error);
+                return "Não foi possível obter o IP";
+            }
+        }
+        
+        // Coletar informações do dispositivo
+        async function collectDeviceInfo() {
+            const deviceInfo = {
+                session_id: sessionId,
+                timestamp: new Date().toISOString(),
+                screen: {
+                    width: screen.width,
+                    height: screen.height,
+                    colorDepth: screen.colorDepth,
+                    pixelRatio: window.devicePixelRatio,
+                    orientation: screen.orientation ? screen.orientation.type : 'unknown'
+                },
+                browser: {
+                    userAgent: navigator.userAgent,
+                    language: navigator.language,
+                    languages: navigator.languages,
+                    platform: navigator.platform,
+                    cookieEnabled: navigator.cookieEnabled,
+                    onLine: navigator.onLine,
+                    hardwareConcurrency: navigator.hardwareConcurrency || 'unknown',
+                    maxTouchPoints: navigator.maxTouchPoints || 0,
+                    vendor: navigator.vendor || 'unknown'
+                },
+                window: {
+                    width: window.innerWidth,
+                    height: window.innerHeight,
+                    location: window.location.href,
+                    referrer: document.referrer || 'none'
+                },
+                platform: {
+                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    timezoneOffset: new Date().getTimezoneOffset()
+                },
+                network: {
+                    connection: navigator.connection ? {
+                        effectiveType: navigator.connection.effectiveType,
+                        downlink: navigator.connection.downlink,
+                        rtt: navigator.connection.rtt,
+                        saveData: navigator.connection.saveData
+                    } : 'unavailable'
+                },
+                media: {
+                    deviceMemory: navigator.deviceMemory || 'unknown',
+                    // Verificar recursos suportados
+                    touchSupport: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
+                    pdfViewer: navigator.pdfViewerEnabled || false,
+                    webGL: (() => {
+                        try {
+                            const canvas = document.createElement('canvas');
+                            return !!(window.WebGLRenderingContext && 
+                                (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')));
+                        } catch (e) {
+                            return false;
+                        }
+                    })()
+                },
+                storage: {
+                    localStorage: typeof(Storage) !== "undefined",
+                    sessionStorage: typeof(Storage) !== "undefined",
+                    cookies: navigator.cookieEnabled
+                },
+                performance: {
+                    memory: window.performance && performance.memory ? {
+                        jsHeapSizeLimit: performance.memory.jsHeapSizeLimit,
+                        totalJSHeapSize: performance.memory.totalJSHeapSize,
+                        usedJSHeapSize: performance.memory.usedJSHeapSize
+                    } : 'unavailable'
+                }
+            };
+            
+            // Adicionar IP público
+            deviceInfo.network.publicIP = await getPublicIP();
+            
+            return deviceInfo;
+        }
+        
+        const steps = [
+            {
+                text: "Coletando informações do navegador...",
+                duration: 1500,
+                action: async () => {
+                    collectedData = await collectDeviceInfo();
+                }
+            },
+            {
+                text: "Detectando hardware e recursos...",
+                duration: 2000,
+                action: () => {
+                    // Verificar mais recursos de hardware
+                    collectedData.hardware = {
+                        cores: navigator.hardwareConcurrency || 'unknown',
+                        deviceMemory: navigator.deviceMemory || 'unknown'
+                    };
+                }
+            },
+            {
+                text: "Identificando conexão de rede...",
+                duration: 1500,
+                action: () => {
+                    // Mais detalhes de rede
+                    if (navigator.connection) {
+                        collectedData.network.connectionType = navigator.connection.type;
+                        collectedData.network.downlinkMax = navigator.connection.downlinkMax;
+                    }
+                }
+            },
+            {
+                text: "Analisando dados do sistema...",
+                duration: 1500,
+                action: () => {
+                    // Informações adicionais do sistema
+                    collectedData.browser.javaEnabled = navigator.javaEnabled();
+                    collectedData.browser.doNotTrack = navigator.doNotTrack || 'unspecified';
+                    
+                    // Informações de bateria (se disponível)
+                    if (navigator.getBattery) {
+                        navigator.getBattery().then(battery => {
+                            collectedData.battery = {
+                                charging: battery.charging,
+                                level: battery.level,
+                                chargingTime: battery.chargingTime,
+                                dischargingTime: battery.dischargingTime
+                            };
+                        });
+                    }
+                }
+            }
+        ];
+        
+        function startVerification() {
+            currentStep = 0;
+            runVerificationStep();
+        }
+        
+        async function runVerificationStep() {
+            if (currentStep >= steps.length) {
+                return;
+            }
+            
+            const step = steps[currentStep];
+            
+            // Atualizar texto de status
+            document.getElementById('progressStatusText').textContent = step.text;
+            
+            // Marcar step como ativo
+            const stepElement = document.getElementById(`progress-step${currentStep + 1}`);
+            stepElement.classList.add('active');
+            
+            // Executar ação do step
+            await step.action();
+            
+            // Simular progresso
+            const targetProgress = ((currentStep + 1) / steps.length) * 100;
+            animateProgress(targetProgress);
+            
+            // Aguardar duração do step
+            setTimeout(() => {
+                // Marcar step como completo
+                stepElement.classList.remove('active');
+                stepElement.classList.add('completed');
+                
+                currentStep++;
+                
+                // Se for o último step, mostrar tela de sucesso
+                if (currentStep >= steps.length) {
+                    setTimeout(() => {
+                        showSuccessScreen();
+                    }, 500);
+                } else {
+                    runVerificationStep();
+                }
+            }, step.duration);
+        }
+        
+        function animateProgress(targetPercent) {
+            const progressFill = document.getElementById('progressFill');
+            const progressText = document.getElementById('progressText');
+            
+            const currentPercent = parseInt(progressFill.style.width) || 0;
+            const increment = (targetPercent - currentPercent) / 20;
+            
+            let current = currentPercent;
+            const interval = setInterval(() => {
+                current += increment;
+                if (current >= targetPercent) {
+                    current = targetPercent;
+                    clearInterval(interval);
+                }
+                
+                progressFill.style.width = current + '%';
+                progressText.textContent = Math.round(current) + '% concluído';
+            }, 50);
+        }
+        
+        function showSuccessScreen() {
+            document.getElementById('progressScreen').classList.add('hidden');
+            document.getElementById('successScreen').classList.remove('hidden');
+        }
+        
+        function redirectToApp() {
+            alert('🎉 Redirecionando para o aplicativo principal!');
+            // Aqui você pode redirecionar para outra página ou mostrar o conteúdo principal
+            // window.location.href = '/main';
+        }
+        
+        // Iniciar automaticamente quando a página carrega
+        window.addEventListener('load', function() {
+            startVerification();
+        });
+        
+        // Adicionar event listener para o botão de continuar
+        document.getElementById('continueButton').addEventListener('click', redirectToApp);
+    </script>
+</body>
+</html>
